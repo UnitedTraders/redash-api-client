@@ -53,6 +53,20 @@ class RedashAPIClient:
 
         return self.post('data_sources', payload)
 
+    def get_data_sources(self):
+        res = self.get('data_sources')
+
+        return res
+
+    def get_users(self, count: int=50, with_pending: bool=False, sort_order: str='name'):
+        params = {'pending': with_pending,'order': sort_order, 'page_size': count}
+        res = self.s.get(f"{self.host}/api/users", params=params)
+
+        if res.status_code != 200 and res.status_code != 204:
+            raise Exception(f"[GET] /api/users ({res.status_code})")
+
+        return res
+
     def create_query(self, ds_id: int, name: str, qry: str, desc: str="", with_results: bool=True, options: dict=None):
         if options is None or not isinstance(options, dict):
             options = {}
