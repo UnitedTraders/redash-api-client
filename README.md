@@ -13,7 +13,7 @@ Redash API Client written in Python.
 
 ## Installation
 
-    pip install redash-api-client
+    pip install git+https://github.com/UnitedTraders/redash-api-client.git
 
 ## Getting Started
 
