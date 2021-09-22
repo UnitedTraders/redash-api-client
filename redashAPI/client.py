@@ -8,6 +8,10 @@ class AlreadyExistsException(Exception):
     """Raised when the object already exists"""
     pass
 
+class EntityNotFoundException(Exception):
+    """Raised when the object not found"""
+    pass
+
 class RedashAPIClient:
     def __init__(self, api_key: str, host: str="http://localhost:5000"):
         self.api_key = api_key
@@ -86,12 +90,18 @@ class RedashAPIClient:
         existing_ds = self.get_data_source_by_name(name)
         if existing_ds is not None:
             return self.delete(f"data_sources/{existing_ds['id']}")
-        else:
-            resp = requests.Response()
-            resp.status_code = 404
-            return resp
+        resp = requests.Response()
+        resp.status_code = 404
+        return resp
 
-    def get_users(self, count: int=50, with_pending: bool=False, sort_order: str='name'):
+    def create_user(self, name: str, email: str):
+        payload = {
+            "email": email,
+            "name": name,
+        }
+        return self.post(f"users", payload)
+
+    def get_users(self, count: int=250, with_pending: bool=True, sort_order: str='name'):
         params = {'pending': with_pending,'order': sort_order, 'page_size': count}
         res = self.s.get(f"{self.host}/api/users", params=params)
 
@@ -99,6 +109,18 @@ class RedashAPIClient:
             raise Exception(f"[GET] /api/users ({res.status_code})")
 
         return res
+
+    def get_user_by_name(self, name: str):
+       #all_users = 
+        return next((usr for usr in self.get_users(count=250).json()['results'] if usr['name'] == name), None)
+
+    def delete_user(self, name: str):
+        existing_user = self.get_user_by_name(name)
+        if existing_user is not None:
+            return self.delete(f"users/{existing_user['id']}")
+        resp = requests.Response()
+        resp.status_code = 404
+        return resp
 
     def create_group(self, name: str):
         if self.get_group_by_name(name) is None:
@@ -112,19 +134,66 @@ class RedashAPIClient:
 
     def get_group_by_name(self, name: str):
         return next((gr for gr in self.get_groups().json() if gr['name'] == name), None)
-    
+
+    def get_group_users_by_id(self, id: int):
+        return self.get(f'groups/{id}/members').json()
+
+    def get_group_data_sources_by_id(self, id: int):
+        return self.get(f'groups/{id}/data_sources').json()
+
     def delete_group(self, name: str):
         existing_gr = self.get_group_by_name(name)
         if existing_gr is not None:
             return self.delete(f"groups/{existing_gr['id']}")
-        else:
-            resp = requests.Response()
-            resp.status_code = 404
-            return resp
+        resp = requests.Response()
+        resp.status_code = 404
+        return resp
 
-    def add_datasource_to_group(self):
-        pass  # not implemented yet
+    def add_user_to_group(self, user_name: str, group_name: str):
+        user = self.get_user_by_name(user_name)
+        if user is None:
+            raise EntityNotFoundException(f"User {user_name} not found!")
+        group = self.get_group_by_name(group_name)
+        if group is None:
+            raise EntityNotFoundException(f"Group {group_name} not found!")
+        payload = {"user_id": user["id"]}
+        return self.post(f'groups/{group["id"]}/members', payload)
 
-    def add_user_to_group(self):
-        pass  # not implemented yet
+    def delete_user_from_group(self, user_name: str, group_name: str):
+        user = self.get_user_by_name(user_name)
+        if user is None:
+            raise EntityNotFoundException(f"User {user_name} not found!")
+        group = self.get_group_by_name(group_name)
+        if group is None:
+            raise EntityNotFoundException(f"Group {group_name} not found!")
+        # make DELETE request if user present in group, else return 404
+        if next((member for member in self.get_group_users_by_id(group["id"]) if member['id'] == user['id']), None) is not None:
+            return self.delete(f'groups/{group["id"]}/members/{user["id"]}')
+        resp = requests.Response()
+        resp.status_code = 404
+        return resp
+        
+    def add_data_source_to_group(self, data_source_name: str, group_name: str):
+        ds = self.get_data_source_by_name(data_source_name)
+        if ds is None:
+            raise EntityNotFoundException(f"Data source {data_source_name} not found!")
+        group = self.get_group_by_name(group_name)
+        if group is None:
+            raise EntityNotFoundException(f"Group {group_name} not found!")
+        payload = {"data_source_id": ds["id"]}
+        return self.post(f'groups/{group["id"]}/data_sources', payload)
+
+    def delete_data_source_from_group(self, data_source_name: str, group_name: str):
+        ds = self.get_data_source_by_name(data_source_name)
+        if ds is None:
+            raise EntityNotFoundException(f"Data source {data_source_name} not found!")
+        group = self.get_group_by_name(group_name)
+        if group is None:
+            raise EntityNotFoundException(f"Group {group_name} not found!")
+        # make DELETE request if ds present in group, else return 404
+        if next((member for member in self.get_group_data_sources_by_id(group["id"]) if member['id'] == ds['id']), None) is not None:
+            return self.delete(f'groups/{group["id"]}/data_sources/{ds["id"]}')
+        resp = requests.Response()
+        resp.status_code = 404
+        return resp
 
