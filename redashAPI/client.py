@@ -66,11 +66,11 @@ class RedashAPIClient:
         raise AlreadyExistsException(f"Datasource {name} already exists!")
 
     def get_data_sources(self):
-        res = self.get('data_sources')
+        res = self.get('data_sources').json()
         return res
 
     def get_data_source_by_name(self, name: str):
-        return next((ds for ds in self.get_data_sources().json() if ds['name'] == name), None)
+        return next((ds for ds in self.get_data_sources() if ds['name'] == name), None)
 
     def create_or_update_datasource(self, _type: str, name: str, options: dict = None):
         existing_ds = self.get_data_source_by_name(name)
@@ -102,17 +102,26 @@ class RedashAPIClient:
         return self.post(f"users", payload)
 
     def get_users(self, count: int=250, with_pending: bool=True, sort_order: str='name'):
-        params = {'pending': with_pending,'order': sort_order, 'page_size': count}
+        params = {'pending': False,'order': sort_order, 'page_size': count}
         res = self.s.get(f"{self.host}/api/users", params=params)
 
         if res.status_code != 200 and res.status_code != 204:
             raise Exception(f"[GET] /api/users ({res.status_code})")
 
-        return res
+        all_users = res.json()['results']
+
+        if with_pending:
+            params = {'pending': True, 'order': sort_order, 'page_size': count}
+            res = self.s.get(f"{self.host}/api/users", params=params)
+            if res.status_code != 200 and res.status_code != 204:
+                raise Exception(f"[GET] /api/users ({res.status_code})")
+            all_users += res.json()['results']
+        
+        return all_users
 
     def get_user_by_name(self, name: str):
        #all_users = 
-        return next((usr for usr in self.get_users(count=250).json()['results'] if usr['name'] == name), None)
+        return next((usr for usr in self.get_users(count=250) if usr['name'] == name), None)
 
     def delete_user(self, name: str):
         existing_user = self.get_user_by_name(name)
@@ -130,10 +139,10 @@ class RedashAPIClient:
         raise AlreadyExistsException(f"Group {name} already exists!")
 
     def get_groups(self):
-        return self.get('groups')
+        return self.get('groups').json()
 
     def get_group_by_name(self, name: str):
-        return next((gr for gr in self.get_groups().json() if gr['name'] == name), None)
+        return next((gr for gr in self.get_groups() if gr['name'] == name), None)
 
     def get_group_users_by_id(self, id: int):
         return self.get(f'groups/{id}/members').json()
