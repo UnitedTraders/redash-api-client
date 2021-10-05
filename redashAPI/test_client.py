@@ -8,6 +8,7 @@ redash = RedashAPIClient(REDASH_API_KEY, REDASH_HOST)
 
 # remove old data
 redash.delete_data_source("_datasource-test")
+redash.delete_data_source("_datasource-test2")
 redash.delete_group("_group-test")
 redash.delete_user("_user1-test")
 
@@ -27,6 +28,18 @@ def test_create_data_source(global_data):
     assert res["options"]["port"] == 35432
     assert res["options"]["password"] == "--------"
     global_data['ds_id'] = res["id"]
+
+def test_create_data_source_via_create_or_update(global_data):
+    res = redash.create_or_update_datasource("pg", "_datasource-test2", options={
+        "dbname": "test_ds2",
+        "host": "test_host",
+        "password": "test_pwd",
+        "port": 35432,
+        "user": "test_user"}).json()
+    assert res["type"] == "pg"
+    assert res["options"]["dbname"] == "test_ds2"
+    assert res["options"]["port"] == 35432
+    assert res["options"]["password"] == "--------"
 
 def test_create_duplicate_data_source():
     with pytest.raises(AlreadyExistsException):
@@ -135,6 +148,8 @@ def test_delete_group():
 def test_delete_data_source():
     # if ds existed - return 204
     res = redash.delete_data_source("_datasource-test")
+    assert res.status_code == 204
+    res = redash.delete_data_source("_datasource-test2")
     assert res.status_code == 204
     # if not - 404
     res = redash.delete_data_source("_datasource-test")
