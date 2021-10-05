@@ -166,7 +166,13 @@ class RedashAPIClient:
         if group is None:
             raise EntityNotFoundException(f"Group {group_name} not found!")
         payload = {"user_id": user["id"]}
-        return self.post(f'groups/{group["id"]}/members', payload)
+        # make POST request if user not present in group, else return 200 - "Not changed"
+        if next((member for member in self.get_group_users_by_id(group["id"]) if member['id'] == user['id']), None) is None:
+            return self.post(f'groups/{group["id"]}/members', payload)
+        resp = requests.Response()
+        resp.status_code = 200
+        resp._content = b'{"msg": "Not changed"}'
+        return resp
 
     def delete_user_from_group(self, user_name: str, group_name: str):
         user = self.get_user_by_name(user_name)
@@ -190,7 +196,13 @@ class RedashAPIClient:
         if group is None:
             raise EntityNotFoundException(f"Group {group_name} not found!")
         payload = {"data_source_id": ds["id"]}
-        return self.post(f'groups/{group["id"]}/data_sources', payload)
+        # make POST request if ds not present in group, else return 404
+        if next((member for member in self.get_group_data_sources_by_id(group["id"]) if member['id'] == ds['id']), None) is None:
+            return self.post(f'groups/{group["id"]}/data_sources', payload)
+        resp = requests.Response()
+        resp.status_code = 200
+        resp._content = b'{"msg": "Not changed"}'
+        return resp
 
     def delete_data_source_from_group(self, data_source_name: str, group_name: str):
         ds = self.get_data_source_by_name(data_source_name)
