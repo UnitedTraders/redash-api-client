@@ -75,7 +75,7 @@ class RedashAPIClient:
     def create_or_update_datasource(self, _type: str, name: str, options: dict = None):
         existing_ds = self.get_data_source_by_name(name)
         if existing_ds is None:
-            return self.create_data_source(self, _type, name, options)
+            return self.create_data_source(_type, name, options)
         else:
             ds_id: int = existing_ds['id']
             payload = {
